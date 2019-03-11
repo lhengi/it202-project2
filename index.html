@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width">
+	<title>Lab 6 Note App</title>
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
+	 crossorigin="anonymous">
+
+
+	<style>
+		.content {
+			display: none;
+			margin: 1em;
+		}
+        #map {
+        height: 100%;
+      }
+        html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+	</style>
+
+</head>
+
+<body>
+	<nav class="navbar navbar-expand-lg navbar-light bg-light">
+		<a class="navbar-brand" href="#">NoteApp</a>
+		<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+    </button>
+  <div class="collapse navbar-collapse" id="navbarNav">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" href="#search">Search <span class="sr-only">(current)</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#list">List</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#map">Map View</a>
+      </li>
+    </ul>
+  </div>
+  </nav>
+
+  
+  <div class="content" id="search">
+    <br>
+
+    <div class="form-group">
+      <label for="statusSelection">Select Status:</label>
+      <select class="form-control" id="statusSelection">
+        <option value="all">All</option>
+        <option value="Open">Open</option>
+        <option value="Completed">Completed</option>
+      </select>
+      <br>
+      <label for="Enter Ward">Enter Ward:</label>
+      <input type="text" class="form-control" id="wardInput" placeholder="Enter Ward">
+      <br>
+      <button id="searchButton" class="btn btn-primary">Search</button>
+    </div>
+  </div>
+
+  <div class="content list-group" id="list">
+    Currently you don't have any notes saved.
+    You can add new note in Home.
+  </div>
+  <div class="content" id="map" >
+  </div>
+
+  <div class="card template" id="cardTemp" style="width: 30rem;">
+		<div class="card-body">
+			<h5 class="card-title">Card title</h5>
+			<h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6>
+			<p class="card-text whereLocate">whereLocate</p>
+            <p class="card-text typeSurface">typeSurface</p>
+            <p class="card-text status">Status</p>
+            <p class="card-text dateCreated">dataCreated</p>
+            <p class="card-text dateCompleted">dateCompleted</p>
+		</div>
+	</div>
+
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.3.1/js/bootstrap.min.js"></script>
+<script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
+      
+
+    <script>
+
+        // soda api
+        var db = new Dexie("notes_database");
+        db.version(1).stores({
+            notes:'++id,subject,notes'
+        });
+
+     $("body").on("click",'.list_note',function(){
+         var currentId = $(this).attr("data-id");
+         $(".content").hide();
+         $("#detail").show();
+         loadDetail(parseInt(currentId));
+
+     });
+
+
+      $(document).ready(function() {
+
+        $("#search").show();
+        $("#cardTemp").hide();
+
+        function hideScreens() {
+          $(".content").hide();
+          
+        }
+
+        $(".nav-link").on("click", function(){
+          hideScreens();
+          var target = $(this).attr("href");
+          $(target).show();
+          console.log(target);
+
+        });
+
+        var endpoint = "https://data.cityofchicago.org/resource/cdmx-wzbz.json"
+        var markers = []
+        function setMapNull(){
+            for (var i = 0; i < markers.length; i++) {
+                markers[i].setMap(null);
+            }
+        }
+        $("#searchButton").on("click",function(){
+            var targetStatus = $("#statusSelection").val();
+            var targetWard = $("#wardInput").val();
+            var query = "?"
+            setMapNull();
+            markers = [];
+            if (targetStatus != "all")
+            {
+                query += "status='"+targetStatus+"'";
+            }
+
+            if(targetWard != "")
+            {
+                if (query != "?")
+                {
+                    query += "&";
+                }
+                query += "ward='"+targetWard+"'";
+            }
+
+            if (query == "?")
+            {
+                query = endpoint;
+            }
+            else
+            {
+                query = endpoint + query;
+            }
+
+            console.log(query)
+            /*
+            Each record/marker should have an info window showing street address, service request number,  where the graffiti is located, what type of surface, date created, status and completion date (if applicable.)
+            <h5 class="card-title">Card title</h5>
+			<h6 class="card-subtitle mb-2 text-muted">Card subtitle</h6>
+			<p class="card-text whereLocate">whereLocate</p>
+            <p class="card-text typeSurface">typeSurface</p>
+            <p class="card-text status">Status</p>
+            <p class="card-text dateCreated">dataCreated</p>
+            <p class="card-text dateCompleted">dateCompleted</p>
+            */
+
+            $("#list").empty();
+
+            $.get(query, function(response) {
+
+                $.each(response,function(i,value){
+                    var clone = $(".template").clone();
+                    // update values
+                    clone.find(".card-title").text(value.service_request_number);
+
+                    clone.find(".card-subtitle").text(value.street_address);
+                    clone.find(".whereLocate").text("Location: " + value.where_is_the_graffiti_located_);
+                    clone.find(".typeSurface").text("Surface: " + value.what_type_of_surface_is_the_graffiti_on_);
+                    clone.find(".status").text("Status: "+ value.status);
+                    clone.find(".dateCreated").text("Date Created: " + 
+                    value.creation_date);
+                    clone.find(".dateCompleted").empty()
+                    if(value.completion_date != null)
+                    {
+                        clone.find(".dateCompleted").text("Date Completed: " + 
+                    value.completion_date);
+                    }
+                    clone.removeClass("template");
+                    // insert into DOM
+                    clone.removeAttr("id");
+                    clone.show();
+                    $("#list").append(clone);
+
+                    // modfy map here
+                    var pos = {lat:parseFloat(value.latitude),lng:parseFloat(value.longitude)}
+
+                    var marker = new google.maps.Marker({
+                        position: pos,
+                        map: map
+                    });
+                    var infoContent = "<div class='card-body'>"+
+			        "<h5 class='card-title'>"+"Request Num: "+value.service_request_number+"</h5>"+
+			        "<h6 class='card-subtitle mb-2 text-muted'>"+"Address: "+value.street_address+"</h6>"+
+			        "<p class='card-text whereLocate'>"+"Location: " + value.where_is_the_graffiti_located_+"</p>"+
+                    "<p class='card-text typeSurface'>"+"Surface: " + value.what_type_of_surface_is_the_graffiti_on_+"</p>"+
+                    "<p class='card-text status'>"+"Status: "+ value.status+"</p>"+
+                    "<p class='card-text dateCreated'>"+"Date Created: " + 
+                    value.creation_date+"</p>";
+                    if(value.completion_date != null)
+                    {
+                        infoContent += "<p class='card-text dateCompleted'>"+"Date Completed: " + 
+                    value.completion_date+"</p></div>";
+                    }
+                    
+                    var infowindow = new google.maps.InfoWindow({content:infoContent});
+                    marker.addListener('click',function(){
+                        infowindow.open(map,marker);
+                    });
+
+                    markers.push(marker);
+                });
+            });
+
+        });
+
+      });
+      var map;
+      function initMap() {
+        var chicago = {lat: 41.8781, lng: -87.6298}
+        map = new google.maps.Map(document.getElementById('map'), {
+          center: chicago,
+          zoom: 13
+        });
+      }
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDa4dMSOASs_iLQnhrPoQ8EZgj2Im_pZ7o&callback=initMap"
+    async defer></script>
+
+
+  </body>
+</html>
